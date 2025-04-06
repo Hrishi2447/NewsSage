@@ -22,7 +22,7 @@
 ![Screenshot 2025-04-06 153213](https://github.com/user-attachments/assets/148c37dd-0b00-4632-b062-13ddffdf7d48)
 
 
-
+---
 ## 🚀 Getting Started
 
 ### 1. Clone the repository
