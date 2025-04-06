@@ -1,21 +1,20 @@
 import re
-import nltk
-from nltk.tokenize import sent_tokenize, word_tokenize
-from nltk.corpus import stopwords
-from nltk.probability import FreqDist
+import numpy as np
+import spacy
 import datetime
 
-# Download necessary NLTK data
-# Directly download all required resources to ensure they're available
-nltk.download('punkt')
-nltk.download('stopwords')
-nltk.download('averaged_perceptron_tagger')
-nltk.download('maxent_ne_chunker')
-nltk.download('words')
+# Load spaCy model
+try:
+    nlp = spacy.load('en_core_web_sm')
+except:
+    # In case the model is not installed
+    import sys
+    print("spaCy model not found. Please install it using: python -m spacy download en_core_web_sm")
+    sys.exit(1)
 
 def create_summary(text, sentences_count=5):
     """
-    Create a summary using a simple frequency-based approach
+    Create a summary using spaCy and TextRank-inspired algorithm
     
     Args:
         text (str): The text to summarize
@@ -24,51 +23,49 @@ def create_summary(text, sentences_count=5):
     Returns:
         str: A summary of the text
     """
-    # Tokenize the text into sentences
-    sentences = sent_tokenize(text)
+    # Process the text with spaCy
+    doc = nlp(text)
+    
+    # Get sentences
+    sentences = [sent.text.strip() for sent in doc.sents]
     
     # Skip summarization if text is too short
     if len(sentences) <= sentences_count:
         return text
     
-    # Remove stop words
-    stop_words = set(stopwords.words('english'))
+    # Implement a simplified TextRank-like algorithm
+    # Create an empty similarity matrix
+    similarity_matrix = np.zeros((len(sentences), len(sentences)))
     
-    # Calculate word frequencies
-    word_frequencies = {}
-    for word in word_tokenize(text.lower()):
-        if word not in stop_words and word.isalnum():
-            if word not in word_frequencies:
-                word_frequencies[word] = 1
-            else:
-                word_frequencies[word] += 1
+    # Calculate similarity between all sentence pairs
+    for i in range(len(sentences)):
+        for j in range(len(sentences)):
+            if i != j:
+                # Get spaCy docs for both sentences
+                doc_i = nlp(sentences[i])
+                doc_j = nlp(sentences[j])
+                
+                # Calculate similarity
+                if doc_i.vector_norm and doc_j.vector_norm:  # Check if vectors exist
+                    similarity_matrix[i][j] = doc_i.similarity(doc_j)
     
-    # Normalize word frequencies
-    max_frequency = max(word_frequencies.values(), default=1)
-    for word in word_frequencies:
-        word_frequencies[word] = word_frequencies[word] / max_frequency
+    # Calculate sentence scores using the sum of similarities
+    sentence_scores = np.sum(similarity_matrix, axis=1)
     
-    # Score sentences based on word frequencies
-    sentence_scores = {}
-    for i, sentence in enumerate(sentences):
-        for word in word_tokenize(sentence.lower()):
-            if word in word_frequencies:
-                if i not in sentence_scores:
-                    sentence_scores[i] = word_frequencies[word]
-                else:
-                    sentence_scores[i] += word_frequencies[word]
+    # Get indices of top sentences
+    ranked_indices = np.argsort(sentence_scores)[::-1]  # Sort in descending order
+    top_indices = ranked_indices[:sentences_count]
     
-    # Get the top-scoring sentences
-    summary_sentence_indices = sorted(sentence_scores, key=sentence_scores.get, reverse=True)[:sentences_count]
-    summary_sentence_indices = sorted(summary_sentence_indices)  # Reorder by original position
+    # Sort indices to maintain original order
+    top_indices = sorted(top_indices)
     
     # Create summary
-    summary = ' '.join([sentences[i] for i in summary_sentence_indices])
+    summary = ' '.join([sentences[i] for i in top_indices])
     return summary
 
 def process_article(article_text, article_title=""):
     """
-    Process the article text using NLTK for summarization, NER, and categorization
+    Process the article text using spaCy for summarization, NER, and categorization
     
     Args:
         article_text (str): The text content of the article
@@ -78,7 +75,7 @@ def process_article(article_text, article_title=""):
         dict: Dictionary containing summary, entities, and category
     """
     try:
-        # Create summary using NLTK
+        # Create summary using spaCy
         summary = create_summary(article_text)
         
         # Extract people names (basic NER)
@@ -104,29 +101,17 @@ def process_article(article_text, article_title=""):
         }
 
 def extract_people(text):
-    """Extract people's names from the text using NLTK's named entity recognition"""
+    """Extract people's names from the text using spaCy's named entity recognition"""
     people = []
     try:
-        # Tokenize and tag
-        sentences = nltk.sent_tokenize(text)
-        for sentence in sentences:
-            words = nltk.word_tokenize(sentence)
-            tagged = nltk.pos_tag(words)
-            # Use named entity chunker
-            entities = nltk.chunk.ne_chunk(tagged)
-            
-            # Extract person names
-            person_names = []
-            for entity in entities:
-                if isinstance(entity, nltk.tree.Tree) and entity.label() == 'PERSON':
-                    name = ' '.join([leaf[0] for leaf in entity.leaves()])
-                    if name not in person_names:
-                        person_names.append(name)
-            
-            # Add names from this sentence
-            for name in person_names:
-                if name not in people:
-                    people.append(name)
+        # Process text with spaCy
+        doc = nlp(text)
+        
+        # Extract person entities
+        for ent in doc.ents:
+            if ent.label_ == 'PERSON':
+                if ent.text not in people:
+                    people.append(ent.text)
                     
         # Take only the top 10 people if there are many
         return people[:10]
@@ -134,8 +119,11 @@ def extract_people(text):
         return []
 
 def extract_dates_events(text):
-    """Extract dates and associated events from the text"""
+    """Extract dates and associated events from the text using spaCy and regex"""
     dates_events = []
+    
+    # Process text with spaCy
+    doc = nlp(text)
     
     # Simple regex patterns for date matching
     date_patterns = [
@@ -144,29 +132,40 @@ def extract_dates_events(text):
         r'\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}\b'
     ]
     
-    sentences = sent_tokenize(text)
+    # Get sentences
+    sentences = [sent.text.strip() for sent in doc.sents]
     
     for sentence in sentences:
         has_date = False
         date_str = ""
         
-        # Check for date patterns
-        for pattern in date_patterns:
-            match = re.search(pattern, sentence)
-            if match:
-                date_str = match.group(0)
+        # First check for spaCy DATE entities
+        sent_doc = nlp(sentence)
+        for ent in sent_doc.ents:
+            if ent.label_ == 'DATE':
+                date_str = ent.text
                 has_date = True
                 break
+                
+        # If no spaCy date was found, check regex patterns
+        if not has_date:
+            for pattern in date_patterns:
+                match = re.search(pattern, sentence)
+                if match:
+                    date_str = match.group(0)
+                    has_date = True
+                    break
         
         # Today, yesterday, etc.
         time_indicators = ["today", "yesterday", "last week", "last month", "last year", 
                           "this week", "this month", "this year", "next week"]
         
-        for indicator in time_indicators:
-            if indicator in sentence.lower() and not has_date:
-                date_str = indicator.capitalize()
-                has_date = True
-                break
+        if not has_date:
+            for indicator in time_indicators:
+                if indicator in sentence.lower():
+                    date_str = indicator.capitalize()
+                    has_date = True
+                    break
         
         # If we found a date and the sentence is not too long, add it
         if has_date and len(sentence) < 300:
@@ -201,12 +200,14 @@ def determine_category(text):
                     "chemistry", "experiment", "theory", "academic", "climate", "environment", "earth"]
     }
     
-    # Tokenize and remove stop words
-    stop_words = set(stopwords.words('english'))
-    words = [w.lower() for w in word_tokenize(text) if w.isalpha() and w.lower() not in stop_words]
+    # Process with spaCy
+    doc = nlp(text)
     
     # Count category matches
     category_scores = {category: 0 for category in category_keywords}
+    
+    # Get all tokens that aren't stop words or punctuation
+    words = [token.text.lower() for token in doc if not token.is_stop and not token.is_punct]
     
     for word in words:
         for category, keywords in category_keywords.items():
@@ -217,4 +218,12 @@ def determine_category(text):
     if all(score == 0 for score in category_scores.values()):
         return "General"
     
-    return max(category_scores, key=category_scores.get)
+    # Find category with max score
+    max_score = 0
+    max_category = "General"
+    for category, score in category_scores.items():
+        if score > max_score:
+            max_score = score
+            max_category = category
+    
+    return max_category
