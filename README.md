@@ -7,7 +7,7 @@
 ## ✨ Features
 
 - 🔗 Input any news article link
-- ✂️ Auto-summarizes lengthy news content
+- ✂️ Auto-summarizes lengthy news content using **spaCy**
 - 👤 Detects and displays main people mentioned
 - 📅 Highlights key events and dates
 - 🗂 Categorizes news (e.g., Tech, Health, Politics)
