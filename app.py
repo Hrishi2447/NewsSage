@@ -112,7 +112,7 @@ def main():
     
     # App Footer
     st.divider()
-    st.caption("This tool uses newspaper3k for article extraction and OpenAI for text analysis.")
+    st.caption("This tool uses newspaper3k for article extraction and NLTK for text analysis.")
 
 if __name__ == "__main__":
     main()
