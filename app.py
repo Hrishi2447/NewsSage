@@ -3,6 +3,7 @@ import time
 import re
 from utils.article_extractor import extract_article
 from utils.nlp_processor import process_article
+from assets.newsbot_mascot import NewsBotMascot
 
 # Set page configuration
 st.set_page_config(
@@ -11,6 +12,33 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# Custom CSS for styling
+st.markdown("""
+<style>
+    /* Styling for the mascot container */
+    div[data-testid="stExpander"] {
+        border-radius: 8px;
+        margin-bottom: 16px;
+    }
+    
+    /* Make toggles look nicer */
+    .stToggle {
+        border-radius: 20px;
+    }
+    
+    /* Make buttons more prominent */
+    .stButton button {
+        font-weight: 500;
+        border-radius: 6px;
+    }
+    
+    /* Better progress bars for keywords */
+    .stProgress > div > div {
+        border-radius: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 def is_valid_url(url):
     """Check if the provided string is a valid URL"""
@@ -23,7 +51,7 @@ def is_valid_url(url):
         r'(?:/?|[/?]\S+)$', re.IGNORECASE)
     return bool(url_pattern.match(url))
 
-def display_article_info(article_data, nlp_result):
+def display_article_info(article_data, nlp_result, show_mascot=True):
     """Display the extracted and processed article information"""
     # Article metadata
     st.header(article_data.get("title", "Article Summary"))
@@ -31,13 +59,20 @@ def display_article_info(article_data, nlp_result):
     # Display article category and source link
     col1, col2 = st.columns([1, 1])
     with col1:
-        st.info(f"Category: {nlp_result.get('category', 'Uncategorized')}")
+        category = nlp_result.get('category', 'Uncategorized')
+        st.info(f"Category: {category}")
     with col2:
         st.markdown(f"[Read Original Article]({article_data.get('url', '#')})")
     
     # Summary section
     st.subheader("Summary")
     st.write(nlp_result.get("summary", "Summary not available"))
+    
+    # Mascot insights - place after summary for best context
+    if show_mascot:
+        # Initialize our mascot based on article category
+        mascot = NewsBotMascot(category)
+        mascot.render(nlp_result, article_data)
     
     # Keywords section
     if nlp_result.get("keywords") and len(nlp_result["keywords"]) > 0:
@@ -97,6 +132,13 @@ def main():
     key people mentioned, important dates, and article categorization.
     """)
     
+    # Create sidebar for settings
+    with st.sidebar:
+        st.header("Settings")
+        # Add a toggle for the mascot
+        show_mascot = st.toggle("Show NewsBot Mascot", value=True, 
+                                help="Enable or disable the friendly NewsBot mascot that provides insights")
+    
     # URL Input
     url = st.text_input("News Article URL", placeholder="https://example.com/news/article")
     
@@ -132,11 +174,11 @@ def main():
                     st.error(f"Failed to analyze article: {nlp_result.get('error', 'Unknown error')}")
                 else:
                     # Display results
-                    display_article_info(article_data, nlp_result)
+                    display_article_info(article_data, nlp_result, show_mascot)
     
     # App Footer
     st.divider()
-    st.caption("This tool uses newspaper3k for article extraction and spaCy for text analysis.")
+    st.caption("This tool uses newspaper3k for article extraction, spaCy for text analysis, and includes a friendly mascot guide to explain insights.")
 
 if __name__ == "__main__":
     main()
