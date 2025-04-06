@@ -6,15 +6,12 @@ from nltk.probability import FreqDist
 import datetime
 
 # Download necessary NLTK data
-try:
-    nltk.data.find('tokenizers/punkt')
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('punkt')
-    nltk.download('stopwords')
-    nltk.download('averaged_perceptron_tagger')
-    nltk.download('maxent_ne_chunker')
-    nltk.download('words')
+# Directly download all required resources to ensure they're available
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('maxent_ne_chunker')
+nltk.download('words')
 
 def create_summary(text, sentences_count=5):
     """
