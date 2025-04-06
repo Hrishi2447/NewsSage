@@ -1,8 +1,8 @@
  📰 NewsSage
 
 **NewsSage** is a HTML and Python-based news summarization app that allows users to paste a news article URL and receive a clear, concise summary. It also extracts key people, events, and categorizes the article (e.g. politics, health, technology).
-Front was done by Html and Streamlit
-backend was done by Python
+Frontend was done by Html and Streamlit
+Backend was done by Python
 ---
 
 ## ✨ Features
