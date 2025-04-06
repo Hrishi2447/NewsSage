@@ -3,7 +3,6 @@ import time
 import re
 from utils.article_extractor import extract_article
 from utils.nlp_processor import process_article
-from utils.export_utils import add_export_section
 from assets.newsbot_mascot import NewsBotMascot
 
 # Set page configuration
@@ -124,17 +123,13 @@ def display_article_info(article_data, nlp_result, show_mascot=True):
     if metadata_items:
         st.divider()
         st.caption(" | ".join(metadata_items))
-    
-    # Add export options
-    add_export_section(article_data, nlp_result)
 
 def main():
     # App Header
     st.title("📰 News Article Summarizer")
     st.markdown("""
     Enter a news article URL below to get a concise summary, extracted keywords, identified topics,
-    key people mentioned, important dates, and article categorization. You can export the analysis 
-    as PDF or Markdown for sharing or offline reading.
+    key people mentioned, important dates, and article categorization.
     """)
     
     # Create sidebar for settings
@@ -183,7 +178,7 @@ def main():
     
     # App Footer
     st.divider()
-    st.caption("This tool uses newspaper3k for article extraction, spaCy for text analysis, and includes a friendly mascot guide to explain insights. Export functionality provided with FPDF and Markdown.")
+    st.caption("This tool uses newspaper3k for article extraction, spaCy for text analysis, and includes a friendly mascot guide to explain insights.")
 
 if __name__ == "__main__":
     main()
