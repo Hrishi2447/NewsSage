@@ -6,7 +6,6 @@ about news article insights.
 """
 import random
 import streamlit as st
-from utils.translator import translate_text
 
 class NewsBotMascot:
     """
@@ -230,14 +229,13 @@ class NewsBotMascot:
         return f"With {people_count} key {people_text} and {dates_count} important {dates_text}, " \
                f"this article connects individuals to specific occurrences or timeframes. {self.emoji}"
     
-    def render(self, nlp_result, article_data, language="English"):
+    def render(self, nlp_result, article_data):
         """
         Render the mascot and its explanations in the Streamlit app
         
         Args:
             nlp_result (dict): The NLP processing results
             article_data (dict): The article data
-            language (str): The language for mascot messages (default is English)
         """
         # Calculate some statistics
         word_count = len(article_data.get("text", "").split())
@@ -251,36 +249,6 @@ class NewsBotMascot:
         # Get top keywords if available
         top_keywords = nlp_result.get("keywords", [])[:3] if nlp_result.get("keywords") else []
         
-        # Generate all mascot messages
-        greeting = self.get_greeting()
-        phrase = self.get_random_phrase()
-        stats_msg = self.explain_summary(word_count, reading_time)
-        keywords_msg = self.explain_keywords(top_keywords) if top_keywords else ""
-        entities_msg = self.explain_entities(people_count, dates_count)
-        trait = random.choice(self.traits)
-        tip_msg = f"Being {trait} as I am, I'd suggest focusing on how this news relates to broader trends in this field."
-        
-        # Translate messages if not in English
-        if language != "English":
-            greeting = translate_text(greeting, language)
-            phrase = translate_text(phrase, language)
-            stats_msg = translate_text(stats_msg, language)
-            if keywords_msg:
-                keywords_msg = translate_text(keywords_msg, language)
-            entities_msg = translate_text(entities_msg, language)
-            tip_msg = translate_text(tip_msg, language)
-            
-            # Also translate the section titles
-            article_stats_title = translate_text("Article Stats", language)
-            keywords_title = translate_text("Keywords", language)
-            people_events_title = translate_text("People & Events", language)
-            insights_title = translate_text(f"{self.name}'s Insights", language)
-        else:
-            article_stats_title = "Article Stats"
-            keywords_title = "Keywords"
-            people_events_title = "People & Events"
-            insights_title = f"{self.name}'s Insights"
-        
         # Create a stylish container for the mascot
         with st.container():
             st.markdown(
@@ -292,24 +260,25 @@ class NewsBotMascot:
                     padding: 15px; 
                     margin-bottom: 20px;
                 ">
-                    <h3 style="color: {self.color}; margin-top: 0;">{self.emoji} {insights_title}</h3>
+                    <h3 style="color: {self.color}; margin-top: 0;">{self.emoji} {self.name}'s Insights</h3>
                 </div>
                 """, 
                 unsafe_allow_html=True
             )
             
             # Greeting and introduction
-            st.markdown(f"**{greeting}** {phrase}")
+            st.markdown(f"**{self.get_greeting()}** {self.get_random_phrase()}")
             
             # Article statistics
-            st.markdown(f"**{article_stats_title}**: {stats_msg}")
+            st.markdown(f"**Article Stats**: {self.explain_summary(word_count, reading_time)}")
             
             # Only show keywords explanation if we have keywords
             if top_keywords:
-                st.markdown(f"**{keywords_title}**: {keywords_msg}")
+                st.markdown(f"**Keywords**: {self.explain_keywords(top_keywords)}")
             
             # Show entities explanation
-            st.markdown(f"**{people_events_title}**: {entities_msg}")
+            st.markdown(f"**People & Events**: {self.explain_entities(people_count, dates_count)}")
             
             # Wrap-up with a tip based on the mascot's personality
-            st.markdown(f"_{tip_msg}_")
+            trait = random.choice(self.traits)
+            st.markdown(f"_Being {trait} as I am, I'd suggest focusing on how this news relates to broader trends in this field._")
