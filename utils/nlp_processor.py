@@ -3,7 +3,6 @@ import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.corpus import stopwords
 from nltk.probability import FreqDist
-from newspaper import Article as NewsArticle
 import datetime
 
 # Download necessary NLTK data
@@ -17,9 +16,62 @@ except LookupError:
     nltk.download('maxent_ne_chunker')
     nltk.download('words')
 
+def create_summary(text, sentences_count=5):
+    """
+    Create a summary using a simple frequency-based approach
+    
+    Args:
+        text (str): The text to summarize
+        sentences_count (int): Number of sentences for the summary
+        
+    Returns:
+        str: A summary of the text
+    """
+    # Tokenize the text into sentences
+    sentences = sent_tokenize(text)
+    
+    # Skip summarization if text is too short
+    if len(sentences) <= sentences_count:
+        return text
+    
+    # Remove stop words
+    stop_words = set(stopwords.words('english'))
+    
+    # Calculate word frequencies
+    word_frequencies = {}
+    for word in word_tokenize(text.lower()):
+        if word not in stop_words and word.isalnum():
+            if word not in word_frequencies:
+                word_frequencies[word] = 1
+            else:
+                word_frequencies[word] += 1
+    
+    # Normalize word frequencies
+    max_frequency = max(word_frequencies.values(), default=1)
+    for word in word_frequencies:
+        word_frequencies[word] = word_frequencies[word] / max_frequency
+    
+    # Score sentences based on word frequencies
+    sentence_scores = {}
+    for i, sentence in enumerate(sentences):
+        for word in word_tokenize(sentence.lower()):
+            if word in word_frequencies:
+                if i not in sentence_scores:
+                    sentence_scores[i] = word_frequencies[word]
+                else:
+                    sentence_scores[i] += word_frequencies[word]
+    
+    # Get the top-scoring sentences
+    summary_sentence_indices = sorted(sentence_scores, key=sentence_scores.get, reverse=True)[:sentences_count]
+    summary_sentence_indices = sorted(summary_sentence_indices)  # Reorder by original position
+    
+    # Create summary
+    summary = ' '.join([sentences[i] for i in summary_sentence_indices])
+    return summary
+
 def process_article(article_text, article_title=""):
     """
-    Process the article text using nltk and newspaper3k built-in summarization
+    Process the article text using NLTK for summarization, NER, and categorization
     
     Args:
         article_text (str): The text content of the article
@@ -29,17 +81,8 @@ def process_article(article_text, article_title=""):
         dict: Dictionary containing summary, entities, and category
     """
     try:
-        # Create a newspaper Article object for its summarization capabilities
-        article = NewsArticle(url='')
-        article.download_state = 2  # Skip download
-        article.html = ""
-        article.text = article_text
-        article.title = article_title
-        article.parse()
-        article.nlp()
-        
-        # Get summary from newspaper's built-in summarizer
-        newspaper_summary = article.summary
+        # Create summary using NLTK
+        summary = create_summary(article_text)
         
         # Extract people names (basic NER)
         people = extract_people(article_text)
@@ -52,7 +95,7 @@ def process_article(article_text, article_title=""):
         
         return {
             "success": True,
-            "summary": newspaper_summary,
+            "summary": summary,
             "people": people,
             "dates_events": dates_events,
             "category": category
