@@ -99,7 +99,7 @@ class SummaryExporter:
     @staticmethod
     def to_pdf(article_data, nlp_result):
         """
-        Convert article summary to PDF format
+        Convert article summary to PDF format with unicode support
         
         Args:
             article_data (dict): The article data
@@ -108,35 +108,72 @@ class SummaryExporter:
         Returns:
             bytes: PDF content as bytes
         """
+        class UnicodePDF(FPDF):
+            def __init__(self):
+                super().__init__()
+                # Enable unicode by adding the DejaVu font which has good unicode support
+                self.add_font('DejaVu', '', 'DejaVuSansCondensed.ttf', uni=True)
+                self.add_font('DejaVu', 'B', 'DejaVuSansCondensed-Bold.ttf', uni=True)
+                self.add_font('DejaVu', 'I', 'DejaVuSansCondensed-Oblique.ttf', uni=True)
+            
+            def sanitize_text(self, text):
+                """Clean text to avoid encoding issues"""
+                if text is None:
+                    return ""
+                # Replace problematic characters with alternatives
+                text = text.replace('\u2019', "'")  # Replace right single quotation mark
+                text = text.replace('\u2018', "'")  # Replace left single quotation mark
+                text = text.replace('\u201c', '"')  # Replace left double quotation mark
+                text = text.replace('\u201d', '"')  # Replace right double quotation mark
+                text = text.replace('\u2013', '-')  # Replace en dash
+                text = text.replace('\u2014', '--') # Replace em dash
+                return text
+                
+        # Since we might not have the DejaVu fonts installed, 
+        # we'll use Arial but still sanitize the text to handle Unicode
         pdf = FPDF()
         pdf.add_page()
+        
+        # Function to sanitize text for PDF
+        def sanitize_text(text):
+            if text is None:
+                return ""
+            # Replace problematic characters with alternatives
+            text = text.replace('\u2019', "'")  # Replace right single quotation mark
+            text = text.replace('\u2018', "'")  # Replace left single quotation mark
+            text = text.replace('\u201c', '"')  # Replace left double quotation mark
+            text = text.replace('\u201d', '"')  # Replace right double quotation mark
+            text = text.replace('\u2013', '-')  # Replace en dash
+            text = text.replace('\u2014', '--') # Replace em dash
+            return text
         
         # Set up fonts
         pdf.set_font("Arial", "B", 16)
         
         # Title
-        title = article_data.get('title', 'Article Summary')
+        title = sanitize_text(article_data.get('title', 'Article Summary'))
         pdf.cell(0, 10, title, 0, 1, 'C')
         pdf.ln(5)
         
         # Metadata
         pdf.set_font("Arial", "B", 12)
-        category = nlp_result.get('category', 'Uncategorized')
+        category = sanitize_text(nlp_result.get('category', 'Uncategorized'))
         pdf.cell(0, 10, f"Category: {category}", 0, 1)
         
         # URL
-        url = article_data.get('url', '')
+        url = sanitize_text(article_data.get('url', ''))
         if url:
             pdf.set_font("Arial", "", 10)
             pdf.cell(0, 5, f"Source: {url}", 0, 1)
         
         # Publication date
         if article_data.get('publish_date'):
-            pdf.cell(0, 5, f"Published: {article_data['publish_date']}", 0, 1)
+            publish_date = sanitize_text(str(article_data['publish_date']))
+            pdf.cell(0, 5, f"Published: {publish_date}", 0, 1)
         
         # Authors
         if article_data.get('authors'):
-            authors = ", ".join(article_data['authors'])
+            authors = sanitize_text(", ".join(article_data['authors']))
             pdf.cell(0, 5, f"Authors: {authors}", 0, 1)
         
         pdf.ln(5)
@@ -146,7 +183,7 @@ class SummaryExporter:
         pdf.cell(0, 10, "Summary", 0, 1)
         pdf.set_font("Arial", "", 11)
         
-        summary = nlp_result.get('summary', 'Summary not available')
+        summary = sanitize_text(nlp_result.get('summary', 'Summary not available'))
         # Split text to ensure it fits within the page width
         pdf.multi_cell(0, 6, summary)
         pdf.ln(5)
@@ -158,8 +195,9 @@ class SummaryExporter:
             pdf.set_font("Arial", "", 11)
             
             for keyword in nlp_result['keywords']:
+                keyword_text = sanitize_text(keyword['text'])
                 score_percent = int(keyword["relevance"] * 100)
-                pdf.cell(0, 6, f"• {keyword['text']} ({score_percent}%)", 0, 1)
+                pdf.cell(0, 6, f"• {keyword_text} ({score_percent}%)", 0, 1)
             
             pdf.ln(5)
         
@@ -170,11 +208,13 @@ class SummaryExporter:
             
             for topic in nlp_result['topics']:
                 pdf.set_font("Arial", "B", 12)
-                pdf.cell(0, 6, topic['name'], 0, 1)
+                topic_name = sanitize_text(topic['name'])
+                pdf.cell(0, 6, topic_name, 0, 1)
                 pdf.set_font("Arial", "", 11)
                 
                 if topic.get('keywords'):
-                    pdf.multi_cell(0, 6, f"Related terms: {', '.join(topic['keywords'])}")
+                    keywords = sanitize_text(', '.join(topic['keywords']))
+                    pdf.multi_cell(0, 6, f"Related terms: {keywords}")
                 
                 pdf.ln(3)
         
@@ -185,7 +225,8 @@ class SummaryExporter:
             
             pdf.set_font("Arial", "", 11)
             for person in nlp_result['people']:
-                pdf.cell(0, 6, f"• {person}", 0, 1)
+                person_name = sanitize_text(person)
+                pdf.cell(0, 6, f"• {person_name}", 0, 1)
             
             pdf.ln(5)
         
@@ -196,8 +237,8 @@ class SummaryExporter:
             
             pdf.set_font("Arial", "", 11)
             for date_event in nlp_result['dates_events']:
-                date = date_event.get('date', 'Date not specified')
-                event = date_event.get('event', '')
+                date = sanitize_text(date_event.get('date', 'Date not specified'))
+                event = sanitize_text(date_event.get('event', ''))
                 
                 pdf.set_font("Arial", "B", 11)
                 pdf.cell(40, 6, date + ":", 0, 0)
@@ -209,14 +250,15 @@ class SummaryExporter:
         
         # Footer with generation timestamp
         pdf.set_font("Arial", "I", 8)
-        pdf.cell(0, 10, f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} by News Summarizer", 0, 1, 'C')
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        pdf.cell(0, 10, f"Generated on {timestamp} by News Summarizer", 0, 1, 'C')
         
-        # The output is already bytes in the newer versions of fpdf
-        output = pdf.output(dest='S')
-        # Handle string or bytes output depending on FPDF version
-        if isinstance(output, str):
-            return output.encode('latin1')
-        return output
+        try:
+            # Get the PDF as bytes
+            return pdf.output(dest='S').encode('latin-1')
+        except UnicodeEncodeError:
+            # Fallback if there's an encoding issue
+            return pdf.output(dest='S')
     
     @staticmethod
     def get_markdown_download_link(article_data, nlp_result, link_text="Download Markdown"):
