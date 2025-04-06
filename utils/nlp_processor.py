@@ -2,6 +2,7 @@ import re
 import numpy as np
 import spacy
 import datetime
+from collections import Counter
 
 # Load spaCy model
 try:
@@ -72,7 +73,7 @@ def process_article(article_text, article_title=""):
         article_title (str, optional): The title of the article
         
     Returns:
-        dict: Dictionary containing summary, entities, and category
+        dict: Dictionary containing summary, entities, category, keywords, and topics
     """
     try:
         # Create summary using spaCy
@@ -87,12 +88,20 @@ def process_article(article_text, article_title=""):
         # Determine category based on keyword frequency
         category = determine_category(article_text)
         
+        # Extract keywords from the article
+        keywords = extract_keywords(article_text)
+        
+        # Identify main topics in the article
+        topics = identify_topics(article_text)
+        
         return {
             "success": True,
             "summary": summary,
             "people": people,
             "dates_events": dates_events,
-            "category": category
+            "category": category,
+            "keywords": keywords,
+            "topics": topics
         }
     except Exception as e:
         return {
@@ -179,6 +188,142 @@ def extract_dates_events(text):
     
     # Take only the top 5 date-events if there are many
     return dates_events[:5]
+
+def extract_keywords(text, max_keywords=10):
+    """
+    Extract the most important keywords from the article using spaCy
+    
+    Args:
+        text (str): The article text
+        max_keywords (int): Maximum number of keywords to extract
+        
+    Returns:
+        list: List of keyword dictionaries with text and relevance score
+    """
+    # Process text with spaCy
+    doc = nlp(text)
+    
+    # We'll focus on nouns, proper nouns, and adjectives as potential keywords
+    pos_tags = ['NOUN', 'PROPN', 'ADJ']
+    
+    # Collect keywords (with frequency)
+    keywords = []
+    word_freq = Counter()
+    
+    # First pass - collect candidate keywords and their frequencies
+    for token in doc:
+        # Check if the token is a potential keyword (right POS and not a stopword)
+        if token.pos_ in pos_tags and not token.is_stop and not token.is_punct and len(token.text) > 2:
+            # Lemmatize the token to get its base form
+            lemma = token.lemma_.lower()
+            word_freq[lemma] += 1
+    
+    # Get the frequency of the most common word for normalization
+    max_freq = word_freq.most_common(1)[0][1] if word_freq else 1
+    
+    # Add normalized keywords with scores
+    for word, freq in word_freq.most_common(max_keywords):
+        # Calculate a normalized score (0-1)
+        score = freq / max_freq
+        keywords.append({
+            "text": word,
+            "relevance": round(score, 2)
+        })
+    
+    return keywords
+
+def identify_topics(text, max_topics=5):
+    """
+    Identify main topics in the article based on keyword co-occurrence
+    
+    Args:
+        text (str): The article text
+        max_topics (int): Maximum number of topics to identify
+        
+    Returns:
+        list: List of topics with their associated keywords
+    """
+    # Process text with spaCy
+    doc = nlp(text)
+    
+    # Break the document into paragraphs
+    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+    
+    # Dictionary to track keyword co-occurrences within paragraphs
+    keyword_groups = {}
+    
+    # Process each paragraph as a potential topic unit
+    for i, paragraph in enumerate(paragraphs):
+        # Skip very short paragraphs
+        if len(paragraph) < 100:
+            continue
+            
+        para_doc = nlp(paragraph)
+        
+        # Extract key terms from this paragraph
+        key_terms = []
+        for token in para_doc:
+            if (token.pos_ in ['NOUN', 'PROPN'] and 
+                not token.is_stop and 
+                len(token.text) > 2):
+                key_terms.append(token.lemma_.lower())
+        
+        # If we found multiple key terms, record them as co-occurring
+        if len(key_terms) > 1:
+            # Use the paragraph index as a group identifier
+            keyword_groups[i] = key_terms
+    
+    # Create topics based on the keyword groups
+    topics = []
+    
+    # Dictionary of category keywords for labeling topics
+    category_keywords = {
+        "Politics": ["government", "president", "election", "vote", "party", "senator", "congress", 
+                     "democrat", "republican", "policy", "political", "bill", "law", "court", "justice"],
+        "Business": ["market", "stock", "company", "economy", "economic", "finance", "financial", "trade",
+                     "investment", "investor", "profit", "bank", "industry", "corporate", "ceo"],
+        "Technology": ["tech", "technology", "software", "hardware", "digital", "internet", "computer", "app",
+                       "device", "startup", "innovation", "developer", "programming", "ai", "artificial intelligence"],
+        "Health": ["health", "medical", "doctor", "patient", "hospital", "disease", "treatment", "drug",
+                   "medicine", "vaccine", "virus", "pandemic", "care", "healthcare", "covid"],
+        "Sports": ["game", "team", "player", "season", "match", "win", "score", "championship", "coach",
+                   "league", "tournament", "athlete", "sport", "football", "soccer", "basketball", "baseball"],
+        "Entertainment": ["movie", "film", "show", "music", "actor", "actress", "celebrity", "star", "director",
+                          "release", "award", "performance", "entertainment", "hollywood", "tv", "television"],
+        "Science": ["science", "research", "study", "scientist", "discovery", "space", "physics", "biology",
+                    "chemistry", "experiment", "theory", "academic", "climate", "environment", "earth"]
+    }
+    
+    # Extract meaningful topics from keyword groups
+    for group_id, terms in keyword_groups.items():
+        # Find category matches for the terms
+        category_matches = {}
+        for term in terms:
+            for category, keywords in category_keywords.items():
+                if term in keywords or any(term in keyword for keyword in keywords):
+                    if category not in category_matches:
+                        category_matches[category] = 0
+                    category_matches[category] += 1
+        
+        # Get the main category for this group
+        main_category = max(category_matches.items(), key=lambda x: x[1])[0] if category_matches else "General"
+        
+        # Create a topic name based on the most frequent terms 
+        term_counts = Counter(terms)
+        main_terms = [term for term, count in term_counts.most_common(3)]
+        
+        # Only include meaningful topics with enough terms
+        if main_terms:
+            topic = {
+                "name": f"{main_category}: {', '.join(main_terms)}",
+                "keywords": list(set(terms))[:5]  # Take only unique terms, up to 5
+            }
+            topics.append(topic)
+    
+    # Take only top topics based on keyword richness
+    sorted_topics = sorted(topics, key=lambda x: len(x["keywords"]), reverse=True)
+    
+    return sorted_topics[:max_topics]
 
 def determine_category(text):
     """Determine the article category based on keyword frequency"""

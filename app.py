@@ -39,6 +39,30 @@ def display_article_info(article_data, nlp_result):
     st.subheader("Summary")
     st.write(nlp_result.get("summary", "Summary not available"))
     
+    # Keywords section
+    if nlp_result.get("keywords") and len(nlp_result["keywords"]) > 0:
+        st.subheader("Keywords")
+        
+        # Create columns for the keywords to display them in a grid
+        keyword_cols = st.columns(3)
+        
+        for i, keyword in enumerate(nlp_result["keywords"]):
+            col_idx = i % 3
+            with keyword_cols[col_idx]:
+                # Create a meter-like visualization with the relevance score
+                score_percent = int(keyword["relevance"] * 100)
+                st.write(f"**{keyword['text']}** ({score_percent}%)")
+                st.progress(keyword["relevance"])
+    
+    # Topics section
+    if nlp_result.get("topics") and len(nlp_result["topics"]) > 0:
+        st.subheader("Main Topics")
+        
+        for topic in nlp_result["topics"]:
+            with st.expander(topic["name"]):
+                if topic.get("keywords"):
+                    st.write("Related terms: " + ", ".join(topic["keywords"]))
+    
     # People mentioned
     if nlp_result.get("people") and len(nlp_result["people"]) > 0:
         st.subheader("Key People Mentioned")
@@ -69,8 +93,8 @@ def main():
     # App Header
     st.title("📰 News Article Summarizer")
     st.markdown("""
-    Enter a news article URL below to get a concise summary, key people mentioned, 
-    important dates, and article categorization.
+    Enter a news article URL below to get a concise summary, extracted keywords, identified topics,
+    key people mentioned, important dates, and article categorization.
     """)
     
     # URL Input
