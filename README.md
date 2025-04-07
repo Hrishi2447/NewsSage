@@ -29,6 +29,8 @@ Backend was done by Python
 
 ### 1. Clone the repository
 ```bash
+open command palette
+chose git clone
 git clone https://github.com/Hrishi2447/NewsSage.git
-pip install -r requirements.txt
-streamlit run app.py
+
+----
