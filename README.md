@@ -26,9 +26,24 @@ Backend was done by Python
 
 ---
 ## 🚀 Getting Started
-
 ### 1. Clone the repository
-```bash
-git clone https://github.com/Hrishi2447/NewsSage.git
+run in terminal 
+open command palette
+chose git clone
+git clone https://github.com/Hrishi2447/NewsSage.gi
+
+### 2. then download the python version 3.11.xx latest version from https://www.python.org/downloads/release/python-3131/
+
+### 3. then create virtuial env with 3.11.xx version
+run in terminal
+python -3.11 -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
-streamlit run app.py
+streamlit run app.py --server.port 8501 --server.address localhost
+deactivate
+
+
+---
+
+
+t
