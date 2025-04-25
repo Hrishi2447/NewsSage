@@ -232,6 +232,7 @@ def extract_keywords(text, max_keywords=10):
     
     return keywords
 
+
 def identify_topics(text, max_topics=5):
     """
     Identify main topics in the article based on keyword co-occurrence
@@ -252,6 +253,24 @@ def identify_topics(text, max_topics=5):
     # Dictionary to track keyword co-occurrences within paragraphs
     keyword_groups = {}
     
+    # Preprocess category keywords into sets for faster exact match lookup
+    category_keywords = {
+        "Politics": set(["government", "president", "election", "vote", "party", "senator", "congress", 
+                         "democrat", "republican", "policy", "political", "bill", "law", "court", "justice"]),
+        "Business": set(["market", "stock", "company", "economy", "economic", "finance", "financial", "trade",
+                         "investment", "investor", "profit", "bank", "industry", "corporate", "ceo"]),
+        "Technology": set(["tech", "technology", "software", "hardware", "digital", "internet", "computer", "app",
+                           "device", "startup", "innovation", "developer", "programming", "ai", "artificial intelligence"]),
+        "Health": set(["health", "medical", "doctor", "patient", "hospital", "disease", "treatment", "drug",
+                       "medicine", "vaccine", "virus", "pandemic", "care", "healthcare", "covid"]),
+        "Sports": set(["game", "team", "player", "season", "match", "win", "score", "championship", "coach",
+                       "league", "tournament", "athlete", "sport", "football", "soccer", "basketball", "baseball"]),
+        "Entertainment": set(["movie", "film", "show", "music", "actor", "actress", "celebrity", "star", "director",
+                              "release", "award", "performance", "entertainment", "hollywood", "tv", "television"]),
+        "Science": set(["science", "research", "study", "scientist", "discovery", "space", "physics", "biology",
+                        "chemistry", "experiment", "theory", "academic", "climate", "environment", "earth"])
+    }
+    
     # Process each paragraph as a potential topic unit
     for i, paragraph in enumerate(paragraphs):
         # Skip very short paragraphs
@@ -270,29 +289,10 @@ def identify_topics(text, max_topics=5):
         
         # If we found multiple key terms, record them as co-occurring
         if len(key_terms) > 1:
-            # Use the paragraph index as a group identifier
             keyword_groups[i] = key_terms
     
     # Create topics based on the keyword groups
     topics = []
-    
-    # Dictionary of category keywords for labeling topics
-    category_keywords = {
-        "Politics": ["government", "president", "election", "vote", "party", "senator", "congress", 
-                     "democrat", "republican", "policy", "political", "bill", "law", "court", "justice"],
-        "Business": ["market", "stock", "company", "economy", "economic", "finance", "financial", "trade",
-                     "investment", "investor", "profit", "bank", "industry", "corporate", "ceo"],
-        "Technology": ["tech", "technology", "software", "hardware", "digital", "internet", "computer", "app",
-                       "device", "startup", "innovation", "developer", "programming", "ai", "artificial intelligence"],
-        "Health": ["health", "medical", "doctor", "patient", "hospital", "disease", "treatment", "drug",
-                   "medicine", "vaccine", "virus", "pandemic", "care", "healthcare", "covid"],
-        "Sports": ["game", "team", "player", "season", "match", "win", "score", "championship", "coach",
-                   "league", "tournament", "athlete", "sport", "football", "soccer", "basketball", "baseball"],
-        "Entertainment": ["movie", "film", "show", "music", "actor", "actress", "celebrity", "star", "director",
-                          "release", "award", "performance", "entertainment", "hollywood", "tv", "television"],
-        "Science": ["science", "research", "study", "scientist", "discovery", "space", "physics", "biology",
-                    "chemistry", "experiment", "theory", "academic", "climate", "environment", "earth"]
-    }
     
     # Extract meaningful topics from keyword groups
     for group_id, terms in keyword_groups.items():
@@ -300,10 +300,8 @@ def identify_topics(text, max_topics=5):
         category_matches = {}
         for term in terms:
             for category, keywords in category_keywords.items():
-                if term in keywords or any(term in keyword for keyword in keywords):
-                    if category not in category_matches:
-                        category_matches[category] = 0
-                    category_matches[category] += 1
+                if term in keywords:
+                    category_matches[category] = category_matches.get(category, 0) + 1
         
         # Get the main category for this group
         main_category = max(category_matches.items(), key=lambda x: x[1])[0] if category_matches else "General"
@@ -316,7 +314,7 @@ def identify_topics(text, max_topics=5):
         if main_terms:
             topic = {
                 "name": f"{main_category}: {', '.join(main_terms)}",
-                "keywords": list(set(terms))[:5]  # Take only unique terms, up to 5
+                "keywords": list(set(terms))[:5]
             }
             topics.append(topic)
     
@@ -325,24 +323,25 @@ def identify_topics(text, max_topics=5):
     
     return sorted_topics[:max_topics]
 
+
 def determine_category(text):
     """Determine the article category based on keyword frequency"""
-    # Dictionary of category keywords
+    # Preprocess category keywords into sets
     category_keywords = {
-        "Politics": ["government", "president", "election", "vote", "party", "senator", "congress", 
-                     "democrat", "republican", "policy", "political", "bill", "law", "court", "justice"],
-        "Business": ["market", "stock", "company", "economy", "economic", "finance", "financial", "trade",
-                     "investment", "investor", "profit", "bank", "industry", "corporate", "ceo"],
-        "Technology": ["tech", "technology", "software", "hardware", "digital", "internet", "computer", "app",
-                       "device", "startup", "innovation", "developer", "programming", "ai", "artificial intelligence"],
-        "Health": ["health", "medical", "doctor", "patient", "hospital", "disease", "treatment", "drug",
-                   "medicine", "vaccine", "virus", "pandemic", "care", "healthcare", "covid"],
-        "Sports": ["game", "team", "player", "season", "match", "win", "score", "championship", "coach",
-                   "league", "tournament", "athlete", "sport", "football", "soccer", "basketball", "baseball"],
-        "Entertainment": ["movie", "film", "show", "music", "actor", "actress", "celebrity", "star", "director",
-                          "release", "award", "performance", "entertainment", "hollywood", "tv", "television"],
-        "Science": ["science", "research", "study", "scientist", "discovery", "space", "physics", "biology",
-                    "chemistry", "experiment", "theory", "academic", "climate", "environment", "earth"]
+        "Politics": set(["government", "president", "election", "vote", "party", "senator", "congress", 
+                         "democrat", "republican", "policy", "political", "bill", "law", "court", "justice"]),
+        "Business": set(["market", "stock", "company", "economy", "economic", "finance", "financial", "trade",
+                         "investment", "investor", "profit", "bank", "industry", "corporate", "ceo"]),
+        "Technology": set(["tech", "technology", "software", "hardware", "digital", "internet", "computer", "app",
+                           "device", "startup", "innovation", "developer", "programming", "ai", "artificial intelligence"]),
+        "Health": set(["health", "medical", "doctor", "patient", "hospital", "disease", "treatment", "drug",
+                       "medicine", "vaccine", "virus", "pandemic", "care", "healthcare", "covid"]),
+        "Sports": set(["game", "team", "player", "season", "match", "win", "score", "championship", "coach",
+                       "league", "tournament", "athlete", "sport", "football", "soccer", "basketball", "baseball"]),
+        "Entertainment": set(["movie", "film", "show", "music", "actor", "actress", "celebrity", "star", "director",
+                              "release", "award", "performance", "entertainment", "hollywood", "tv", "television"]),
+        "Science": set(["science", "research", "study", "scientist", "discovery", "space", "physics", "biology",
+                        "chemistry", "experiment", "theory", "academic", "climate", "environment", "earth"])
     }
     
     # Process with spaCy
@@ -363,12 +362,6 @@ def determine_category(text):
     if all(score == 0 for score in category_scores.values()):
         return "General"
     
-    # Find category with max score
-    max_score = 0
-    max_category = "General"
-    for category, score in category_scores.items():
-        if score > max_score:
-            max_score = score
-            max_category = category
+    max_category = max(category_scores.items(), key=lambda x: x[1])[0]
     
     return max_category

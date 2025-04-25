@@ -7,6 +7,7 @@ from assets.newsbot_mascot import NewsBotMascot
 
 # Set page configuration
 st.set_page_config(
+    
     page_title="News Summarizer",
     page_icon="📰",
     layout="centered",
